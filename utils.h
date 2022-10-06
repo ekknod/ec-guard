@@ -2,7 +2,16 @@
 #define UTILS_H
 
 
+#ifdef __linux__
+#include <dlfcn.h>
+typedef int BOOL;
+typedef unsigned long ULONG_PTR;
+typedef void *PVOID;
+typedef const char *PCSTR;
+typedef unsigned int DWORD;
+#else
 #include <windows.h>
+#endif
 
 typedef struct 
 {
@@ -19,7 +28,7 @@ namespace utils
 
 
 	BOOL  MemCopy(PVOID dst, PVOID src, ULONG_PTR length);
-	BOOL  Hook(PVOID dst, PVOID src);
+	BOOL  hook(PVOID dst, PVOID src);
 }
 
 #endif /* UTILS_H */

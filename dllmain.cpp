@@ -17,8 +17,10 @@
 
 BOOL DllOnLoad(void)
 {
+#ifndef __linux__
 	AllocConsole();
 	freopen("CONOUT$", "w", stdout);
+#endif
 
 	if (!engine::InstallHooks())
 	{
@@ -35,6 +37,20 @@ BOOL DllOnLoad(void)
 	return 1;
 }
 
+#ifdef __linux__
+int __attribute__((constructor)) DllMain(void)
+{
+	if (DllOnLoad())
+		return 0;
+	return -1;
+}
+
+void __attribute__((destructor)) DllUnload(void)
+{
+}
+
+#else
+
 BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 {
 	BOOL ret = 0;
@@ -44,4 +60,5 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 	}
 	return ret;
 }
+#endif
 

@@ -5,6 +5,10 @@
 #include <math.h>
 #include <stdio.h>
 
+#ifdef __linux__
+#define __fastcall
+#endif
+
 namespace hooks
 {
 	DWORD viewangle_tid = 0;
@@ -14,8 +18,13 @@ namespace hooks
 	// it could be encrypted and decrypted in GetViewAngles/SetViewAngles routine if wanted to.
 	// 
 	static vec3 viewangles{0, -89.0f, 0};
+	#ifdef __linux__
+	static void __fastcall GetViewAngles(void *, vec3 &va);
+	static void __fastcall SetViewAngles(void *, vec3 &va);
+	#else
 	static void __fastcall GetViewAngles(void *, void *, vec3 &va);
 	static void __fastcall SetViewAngles(void *, void *, vec3 &va);
+	#endif
 }
 
 static float AngleNormalize( float angle )
@@ -32,7 +41,12 @@ static float AngleNormalize( float angle )
 	return angle;
 }
 
+#ifdef __linux__
+static void __fastcall hooks::GetViewAngles(void *, vec3 &va)
+#else
 static void __fastcall hooks::GetViewAngles(void *, void *, vec3 &va)
+#endif
+
 {
 	if (viewangle_tid == 0)
 	{
@@ -47,7 +61,11 @@ static void __fastcall hooks::GetViewAngles(void *, void *, vec3 &va)
 	va = viewangles;
 }
 
+#ifdef __linux__
+static void __fastcall hooks::SetViewAngles(void *, vec3 &va)
+#else
 static void __fastcall hooks::SetViewAngles(void *, void *, vec3 &va)
+#endif
 {
 	if (viewangle_tid == 0)
 	{
@@ -68,7 +86,11 @@ BOOL engine::InstallHooks(void)
 {
 	printf("[engine::Install]\n");
 
+	#ifdef __linux
+	PVOID factory = utils::get_interface_factory("./bin/linux64/engine_client.so");
+	#else
 	PVOID factory = utils::get_interface_factory("engine.dll");
+	#endif
 	if (factory == 0)
 		return 0;
 
@@ -78,12 +100,13 @@ BOOL engine::InstallHooks(void)
 
 	printf("[engine::IEngineClient]: %p\n", IEngineClient);
 
-	utils::Hook(
+	
+	utils::hook(
 		utils::get_interface_function(IEngineClient, 18), // GetViewAngles,
 		(PVOID)hooks::GetViewAngles
 	);
 	
-	utils::Hook(
+	utils::hook(
 		utils::get_interface_function(IEngineClient, 19), // SetViewAngles,
 		(PVOID)hooks::SetViewAngles
 	);
