@@ -11,7 +11,7 @@ typedef unsigned long ULONG_PTR;
 
 namespace engine
 {
-	BOOL InstallHooks(void);
+	BOOL initialize(void);
 }
 
 #endif /* ENGINE_H */

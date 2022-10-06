@@ -22,7 +22,7 @@ BOOL DllOnLoad(void)
 	freopen("CONOUT$", "w", stdout);
 #endif
 
-	if (!engine::InstallHooks())
+	if (!engine::initialize())
 	{
 		return 0;
 	}

@@ -41,6 +41,14 @@ static float AngleNormalize( float angle )
 	return angle;
 }
 
+inline vec3 virtualize_me_decrypt_encrypt(vec3 va)
+{
+	int data_x = *(int*)&va.x ^ 0xECECECEC;
+	int data_y = *(int*)&va.y ^ 0xECECECEC;
+	int data_z = *(int*)&va.z;
+	return vec3{ *(float*)&data_x, *(float*)&data_y, *(float*)&data_z };
+}
+
 #ifdef __linux__
 static void __fastcall hooks::GetViewAngles(void *, vec3 &va)
 #else
@@ -58,7 +66,7 @@ static void __fastcall hooks::GetViewAngles(void *, void *, vec3 &va)
 		va = vec3{};
 		return;
 	}
-	va = viewangles;
+	va = virtualize_me_decrypt_encrypt(viewangles);
 }
 
 #ifdef __linux__
@@ -80,11 +88,12 @@ static void __fastcall hooks::SetViewAngles(void *, void *, vec3 &va)
 	viewangles.x = AngleNormalize(va.x);
 	viewangles.y = AngleNormalize(va.y);
 	viewangles.z = AngleNormalize(va.z);
+	viewangles = virtualize_me_decrypt_encrypt(viewangles);
 }
 
-BOOL engine::InstallHooks(void)
+BOOL engine::initialize(void)
 {
-	printf("[engine::Install]\n");
+	printf("[engine::initialize]\n");
 
 	#ifdef __linux
 	PVOID factory = utils::get_interface_factory("./bin/linux64/engine_client.so");
@@ -111,7 +120,7 @@ BOOL engine::InstallHooks(void)
 		(PVOID)hooks::SetViewAngles
 	);
 
-	printf("[engine::Install] complete\n");
+	printf("[engine::initialize] complete\n");
 
 	return 1;
 }
