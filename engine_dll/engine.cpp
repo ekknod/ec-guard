@@ -85,10 +85,11 @@ static void __fastcall hooks::SetViewAngles(void *, void *, vec3 &va)
 		return;
 	}
 
-	viewangles.x = AngleNormalize(va.x);
-	viewangles.y = AngleNormalize(va.y);
-	viewangles.z = AngleNormalize(va.z);
-	viewangles = virtualize_me_decrypt_encrypt(viewangles);
+	vec3 stack_va;
+	stack_va.x = AngleNormalize(va.x);
+	stack_va.y = AngleNormalize(va.y);
+	stack_va.z = AngleNormalize(va.z);
+	viewangles = virtualize_me_decrypt_encrypt(stack_va);
 }
 
 BOOL engine::initialize(void)
