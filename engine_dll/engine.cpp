@@ -16,7 +16,7 @@ namespace hooks
 	//
 	// viewangles .data location is CSGO-AC.dll
 	// it could be encrypted and decrypted in GetViewAngles/SetViewAngles routine if wanted to.
-	// 
+	//
 	static vec3 viewangles{0, -89.0f, 0};
 	#ifdef __linux__
 	static void __fastcall GetViewAngles(void *, vec3 &va);
@@ -54,17 +54,20 @@ static void __fastcall hooks::GetViewAngles(void *, vec3 &va)
 #else
 static void __fastcall hooks::GetViewAngles(void *, void *, vec3 &va)
 #endif
-
 {
-	if (viewangle_tid == 0)
-	{
-		viewangle_tid = utils::get_current_thread_id();
-	}
-	
+	//
+	// check if routine is called outside from main thread
+	//
 	if (viewangle_tid != utils::get_current_thread_id())
 	{
-		va = vec3{};
-		return;
+		if (viewangle_tid == 0)
+		{
+			viewangle_tid = utils::get_current_thread_id();
+		}
+		else
+		{
+			return;
+		}
 	}
 	va = virtualize_me_decrypt_encrypt(viewangles);
 }
@@ -75,14 +78,19 @@ static void __fastcall hooks::SetViewAngles(void *, vec3 &va)
 static void __fastcall hooks::SetViewAngles(void *, void *, vec3 &va)
 #endif
 {
-	if (viewangle_tid == 0)
-	{
-		viewangle_tid = utils::get_current_thread_id();
-	}
-
+	//
+	// check if routine is called outside from main thread
+	//
 	if (viewangle_tid != utils::get_current_thread_id())
 	{
-		return;
+		if (viewangle_tid == 0)
+		{
+			viewangle_tid = utils::get_current_thread_id();
+		}
+		else
+		{
+			return;
+		}
 	}
 
 	vec3 stack_va;
@@ -120,6 +128,9 @@ BOOL engine::initialize(void)
 		utils::get_interface_function(IEngineClient, 19), // SetViewAngles,
 		(PVOID)hooks::SetViewAngles
 	);
+	hooks::viewangles = virtualize_me_decrypt_encrypt(hooks::viewangles);
+
+
 
 	printf("[engine::initialize] complete\n");
 

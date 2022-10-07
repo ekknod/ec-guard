@@ -12,9 +12,13 @@
  */
 
 #define _CRT_SECURE_NO_WARNINGS
+#include "client_dll/client.h"
 #include "engine_dll/engine.h"
 #include <stdio.h>
 
+//
+// todo. call me in thread so we don't need to inject this plugin at the server.
+//
 BOOL DllOnLoad(void)
 {
 #ifndef __linux__
@@ -22,17 +26,19 @@ BOOL DllOnLoad(void)
 	freopen("CONOUT$", "w", stdout);
 #endif
 
+#ifndef __linux__
+	if (!client::initialize())
+	{
+		return 0;
+	}
+#endif
+
+	
 	if (!engine::initialize())
 	{
 		return 0;
 	}
-
-	/*
-	if (!client::InstallHooks())
-	{
-		return 0;
-	}
-	*/
+	
 
 	return 1;
 }

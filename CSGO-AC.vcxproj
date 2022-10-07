@@ -131,11 +131,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="client_dll\client.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="engine_dll\engine.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="client_dll\client.h" />
     <ClInclude Include="engine_dll\engine.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
