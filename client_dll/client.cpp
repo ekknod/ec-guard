@@ -3,6 +3,11 @@
 
 #include <stdio.h>
 
+namespace client
+{
+	static BOOL bHooked = FALSE;
+}
+
 namespace hooks
 {
 	static bool __fastcall C_CSPlayer_CreateMove( void *, void *, float flInputSampleTime, void *pCmd );
@@ -27,7 +32,11 @@ static bool __fastcall hooks::C_CSPlayer_CreateMove( void *, void *, float flInp
 
 BOOL client::initialize(void)
 {
-	printf("[client::initialize]\n");
+	if (bHooked)
+	{
+		return 1;
+	}
+
 	PVOID factory = utils::get_interface_factory("client.dll");
 	if (factory == 0)
 	{
@@ -52,9 +61,14 @@ BOOL client::initialize(void)
 		return 0;
 	}
 
-	utils::hook(create_move, hooks::C_CSPlayer_CreateMove);
+	if (!utils::hook(create_move, hooks::C_CSPlayer_CreateMove))
+	{
+		return 0;
+	}
 
-	printf("[client::initialize] complete\n");
+	bHooked = TRUE;
+
+	printf("[client.dll] hook success\n");
 
 	return 1;
 }

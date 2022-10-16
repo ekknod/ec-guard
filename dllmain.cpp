@@ -14,11 +14,69 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "client_dll/client.h"
 #include "engine_dll/engine.h"
+#include "utils.h"
 #include <stdio.h>
 
-//
-// todo. call me in thread so we don't need to inject this plugin at the server.
-//
+#ifndef __linux__
+static UINT (WINAPI *NtUserGetRawInputData)(
+	_In_ HRAWINPUT hRawInput,
+	_In_ UINT uiCommand,
+	_Out_writes_bytes_to_opt_(*pcbSize, return) LPVOID pData,
+	_Inout_ PUINT pcbSize,
+	_In_ UINT cbSizeHeader);
+
+
+HANDLE mouse_device = 0;
+
+UINT
+WINAPI
+GetRawInputDataHook(
+    _In_ HRAWINPUT hRawInput,
+    _In_ UINT uiCommand,
+    _Out_writes_bytes_to_opt_(*pcbSize, return) LPVOID pData,
+    _Inout_ PUINT pcbSize,
+    _In_ UINT cbSizeHeader)
+{
+	UINT ret = NtUserGetRawInputData(hRawInput, uiCommand, pData, pcbSize, cbSizeHeader);
+	if (!ret)
+	{
+		return 0;
+	}
+
+	RAWINPUT *data = (RAWINPUT*)pData;
+
+	//
+	// block mouse_event
+	//
+	if (data->header.hDevice != mouse_device)
+	{
+		//
+		// todo: initialize legit mouse_device better way
+		//
+		if (mouse_device == 0)
+		{
+			mouse_device = data->header.hDevice;
+		}
+		else
+		{
+			if (pcbSize)
+			{
+				memset(pData, 0, *pcbSize);
+			}
+			return 0;
+		}
+	}
+
+	//
+	// install client.dll hook, in case it's not in place
+	//
+	client::initialize();
+
+	return ret;
+}
+
+#endif
+
 BOOL DllOnLoad(void)
 {
 #ifndef __linux__
@@ -26,18 +84,19 @@ BOOL DllOnLoad(void)
 	freopen("CONOUT$", "w", stdout);
 #endif
 
-#ifndef __linux__
-	if (!client::initialize())
-	{
-		return 0;
-	}
-#endif
-
 	
 	if (!engine::initialize())
 	{
 		return 0;
 	}
+
+#ifndef __linux__
+	*(PVOID*)&NtUserGetRawInputData = (PVOID)GetProcAddress(LoadLibraryA("win32u.dll"), "NtUserGetRawInputData");
+	utils::hook(
+		(PVOID)GetRawInputData,
+		GetRawInputDataHook
+	);
+#endif
 	
 
 	return 1;

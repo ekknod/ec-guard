@@ -102,8 +102,6 @@ static void __fastcall hooks::SetViewAngles(void *, void *, vec3 &va)
 
 BOOL engine::initialize(void)
 {
-	printf("[engine::initialize]\n");
-
 	#ifdef __linux
 	PVOID factory = utils::get_interface_factory("./bin/linux64/engine_client.so");
 	#else
@@ -115,9 +113,6 @@ BOOL engine::initialize(void)
 	PVOID IEngineClient = utils::get_interface(factory, "VEngineClient014");
 	if (IEngineClient == 0)
 		return 0;
-
-	printf("[engine::IEngineClient]: %p\n", IEngineClient);
-
 	
 	utils::hook(
 		utils::get_interface_function(IEngineClient, 18), // GetViewAngles,
@@ -132,7 +127,7 @@ BOOL engine::initialize(void)
 
 
 
-	printf("[engine::initialize] complete\n");
+	printf("[engine.dll] hook success\n");
 
 	return 1;
 }
