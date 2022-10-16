@@ -46,7 +46,7 @@ GetRawInputDataHook(
 	RAWINPUT *data = (RAWINPUT*)pData;
 
 	//
-	// block mouse_event
+	// block mouse_event / MouseServiceCallbackMeme
 	//
 	if (data->header.hDevice != mouse_device)
 	{
