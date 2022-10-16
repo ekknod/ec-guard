@@ -20,7 +20,7 @@
 #ifndef __linux__
 
 HANDLE  mouse_device     = 0;
-WNDPROC game_window_proc = NULL;
+WNDPROC game_window_proc = 0;
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	//
@@ -61,15 +61,20 @@ BOOL DllOnLoad(void)
 	AllocConsole();
 	freopen("CONOUT$", "w", stdout);
 #endif
+
+#ifndef __linux__
+	if (!client::initialize())
+	{
+		printf("[-] join server before installing the plugin\n");
+		return 0;
+	}
+	game_window_proc = (WNDPROC)SetWindowLongPtrW(FindWindowA("Valve001", 0), GWL_WNDPROC, (LONG)WindowProc);
+#endif
 	
 	if (!engine::initialize())
 	{
 		return 0;
 	}
-
-#ifndef __linux__
-	game_window_proc = (WNDPROC)SetWindowLongPtr(FindWindowA("Valve001", 0), GWL_WNDPROC, (LONG)(LONG_PTR)WindowProc);
-#endif
 
 	printf("[CSGO-AC] plugin is installed\n");
 	
