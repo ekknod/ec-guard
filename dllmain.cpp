@@ -83,7 +83,6 @@ BOOL DllOnLoad(void)
 	AllocConsole();
 	freopen("CONOUT$", "w", stdout);
 #endif
-
 	
 	if (!engine::initialize())
 	{
@@ -91,14 +90,18 @@ BOOL DllOnLoad(void)
 	}
 
 #ifndef __linux__
-	*(PVOID*)&NtUserGetRawInputData = (PVOID)GetProcAddress(LoadLibraryA("win32u.dll"), "NtUserGetRawInputData");
-	utils::hook(
+	*(PVOID*)&NtUserGetRawInputData = (PVOID)GetProcAddress(GetModuleHandleA("win32u.dll"), "NtUserGetRawInputData");
+	if (!utils::hook(
 		(PVOID)GetRawInputData,
 		GetRawInputDataHook
-	);
+	))
+	{
+		*(int*)(0)=0;
+	}
 #endif
-	
 
+	printf("[CSGO-AC] plugin is installed\n");
+	
 	return 1;
 }
 
