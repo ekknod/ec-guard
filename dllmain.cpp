@@ -18,61 +18,39 @@
 #include <stdio.h>
 
 #ifndef __linux__
-static UINT (WINAPI *NtUserGetRawInputData)(
-	_In_ HRAWINPUT hRawInput,
-	_In_ UINT uiCommand,
-	_Out_writes_bytes_to_opt_(*pcbSize, return) LPVOID pData,
-	_Inout_ PUINT pcbSize,
-	_In_ UINT cbSizeHeader);
 
-
-HANDLE mouse_device = 0;
-
-UINT
-WINAPI
-GetRawInputDataHook(
-    _In_ HRAWINPUT hRawInput,
-    _In_ UINT uiCommand,
-    _Out_writes_bytes_to_opt_(*pcbSize, return) LPVOID pData,
-    _Inout_ PUINT pcbSize,
-    _In_ UINT cbSizeHeader)
+HANDLE  mouse_device     = 0;
+WNDPROC game_window_proc = NULL;
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	UINT ret = NtUserGetRawInputData(hRawInput, uiCommand, pData, pcbSize, cbSizeHeader);
-	if (!ret)
-	{
-		return 0;
-	}
-
-	RAWINPUT *data = (RAWINPUT*)pData;
-
 	//
-	// block mouse_event
-	//
-	if (data->header.hDevice != mouse_device)
+	// mouse_event x,y blocking
+	// 
+	if (uMsg == WM_INPUT)
 	{
-		//
-		// todo: initialize legit mouse_device better way
-		//
-		if (mouse_device == 0)
+		RAWINPUT data{};
+		UINT size = sizeof(RAWINPUT);
+		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &data, &size, sizeof(RAWINPUTHEADER));
+
+		if (data.header.dwType == RIM_TYPEMOUSE)
 		{
-			mouse_device = data->header.hDevice;
-		}
-		else
-		{
-			if (pcbSize)
+			if (data.header.hDevice != mouse_device)
 			{
-				memset(pData, 0, *pcbSize);
+				//
+				// todo: initialize legit mouse_device better way
+				//
+				if (mouse_device == 0)
+				{
+					mouse_device = data.header.hDevice;
+				}
+				else
+				{
+					return 0;
+				}
 			}
-			return 0;
 		}
 	}
-
-	//
-	// blocks EC viewangle method
-	//
-	client::initialize();
-
-	return ret;
+	return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
 }
 
 #endif
@@ -90,14 +68,7 @@ BOOL DllOnLoad(void)
 	}
 
 #ifndef __linux__
-	*(PVOID*)&NtUserGetRawInputData = (PVOID)GetProcAddress(GetModuleHandleA("win32u.dll"), "NtUserGetRawInputData");
-	if (!utils::hook(
-		(PVOID)GetRawInputData,
-		GetRawInputDataHook
-	))
-	{
-		*(int*)(0)=0;
-	}
+	game_window_proc = (WNDPROC)SetWindowLongPtr(FindWindowA("Valve001", 0), GWL_WNDPROC, (LONG)(LONG_PTR)WindowProc);
 #endif
 
 	printf("[CSGO-AC] plugin is installed\n");
