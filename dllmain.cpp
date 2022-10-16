@@ -46,7 +46,7 @@ GetRawInputDataHook(
 	RAWINPUT *data = (RAWINPUT*)pData;
 
 	//
-	// block mouse_event / MouseServiceCallbackMeme
+	// block mouse_event
 	//
 	if (data->header.hDevice != mouse_device)
 	{
@@ -68,7 +68,18 @@ GetRawInputDataHook(
 	}
 
 	//
-	// install client.dll hook, in case it's not in place
+	// block MouseServiceCallbackMeme
+	//
+	if (data->data.hid.dwCount > 1)
+	{
+		//
+		// todo: disconnect player from server
+		
+		return 0;
+	}
+
+	//
+	// blocks EC viewangle method
 	//
 	client::initialize();
 
