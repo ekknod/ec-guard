@@ -74,14 +74,25 @@ GetRawInputDataHook(
 	{
 		//
 		// todo: disconnect player from server
-		
+		//
+		if (pcbSize)
+		{
+			memset(pData, 0, *pcbSize);
+		}
+
+		//
+		// add false positive counter here before kicking the player
+		// because when game is frozen, this is not accurate
+		//
+		printf("[CSGO-AC] MouseClassServiceCallbackMeme: disconnecting player from the server...\n");
+
 		return 0;
 	}
 
 	//
 	// blocks EC viewangle method
 	//
-	client::initialize();
+	// client::initialize();
 
 	return ret;
 }
