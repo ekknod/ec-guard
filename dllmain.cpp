@@ -25,7 +25,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	//
 	// mouse_event x,y blocking
-	// 
+	//
 	if (uMsg == WM_INPUT)
 	{
 		RAWINPUT data{};
@@ -45,11 +45,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				}
 				else
 				{
-					return 0;
+					uMsg = WM_NULL;
 				}
 			}
 		}
 	}
+
 	return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
 }
 
