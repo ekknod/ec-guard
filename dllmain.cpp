@@ -21,6 +21,8 @@
 
 HANDLE  mouse_device     = 0;
 WNDPROC game_window_proc = 0;
+DWORD   invalid_cnt      = 0;
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	//
@@ -45,6 +47,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				}
 				else
 				{
+					invalid_cnt++;
+
+					printf("[CSGO-AC] invalid mouse input detected %d\n", invalid_cnt);
+
 					uMsg = WM_NULL;
 				}
 			}
