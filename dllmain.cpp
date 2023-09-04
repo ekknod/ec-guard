@@ -26,37 +26,55 @@ DWORD   invalid_cnt      = 0;
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	//
-	// mouse_event x,y blocking
+	// mouse_event detection
 	//
-	if (uMsg == WM_INPUT)
 	{
-		RAWINPUT data{};
-		UINT size = sizeof(RAWINPUT);
-		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &data, &size, sizeof(RAWINPUTHEADER));
-
-		if (data.header.dwType == RIM_TYPEMOUSE)
+		if (uMsg == WM_INPUT)
 		{
-			if (data.header.hDevice != mouse_device)
+			RAWINPUT data{};
+			UINT size = sizeof(RAWINPUT);
+			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &data, &size, sizeof(RAWINPUTHEADER));
+
+			if (data.header.dwType == RIM_TYPEMOUSE)
 			{
-				//
-				// todo: initialize legit mouse_device better way
-				//
-				if (mouse_device == 0)
+				if (data.header.hDevice != mouse_device)
 				{
-					mouse_device = data.header.hDevice;
+					//
+					// todo: initialize legit mouse_device better way
+					//
+					if (mouse_device == 0)
+					{
+						mouse_device = data.header.hDevice;
+					}
+					else
+					{
+						invalid_cnt++;
+
+						printf("[CSGO-AC.dll] invalid mouse input detected %d\n", invalid_cnt);
+
+						uMsg = WM_NULL;
+					}
 				}
-				else
+			}
+		}
+
+		//
+		// https://stackoverflow.com/questions/69193249/how-to-distinguish-mouse-and-touchpad-events-using-getcurrentinputmessagesource
+		//
+		if ((uMsg >= WM_MOUSEFIRST && uMsg <= WM_MOUSELAST) || (uMsg >= WM_KEYFIRST && uMsg <= WM_KEYLAST) || (uMsg >= WM_TOUCH && uMsg <= WM_POINTERWHEEL))
+		{
+			INPUT_MESSAGE_SOURCE src;
+			if (GetCurrentInputMessageSource(&src))
+			{
+				if (src.originId == IMO_INJECTED)
 				{
 					invalid_cnt++;
-
-					printf("[CSGO-AC] invalid mouse input detected %d\n", invalid_cnt);
-
+					printf("[CSGO-AC.dll] invalid mouse input detected %d\n", invalid_cnt);
 					uMsg = WM_NULL;
 				}
 			}
 		}
 	}
-
 	return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
 }
 
@@ -83,7 +101,7 @@ BOOL DllOnLoad(void)
 		return 0;
 	}
 
-	printf("[CSGO-AC] plugin is installed\n");
+	printf("[CSGO-AC.dll] plugin is installed\n");
 	
 	return 1;
 }
