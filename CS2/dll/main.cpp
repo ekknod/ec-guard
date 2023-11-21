@@ -2,6 +2,8 @@
 #include <windows.h>
 #include <stdio.h>
 
+#define LOG(...) printf("[ec-guard.exe] " __VA_ARGS__)
+
 HANDLE  mouse_device     = 0;
 WNDPROC game_window_proc = 0;
 DWORD   invalid_cnt      = 0;
@@ -33,7 +35,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					{
 						invalid_cnt++;
 
-						printf("[CSGO-AC.dll] invalid mouse input detected %d\n", invalid_cnt);
+						LOG("invalid mouse input detected %d\n", invalid_cnt);
 
 						uMsg = WM_NULL;
 					}
@@ -52,7 +54,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				if (src.originId == IMO_INJECTED)
 				{
 					invalid_cnt++;
-					printf("[CSGO-AC.dll] invalid mouse input detected %d\n", invalid_cnt);
+					LOG("invalid mouse input detected %d\n", invalid_cnt);
 					uMsg = WM_NULL;
 				}
 			}
@@ -91,7 +93,7 @@ BOOL DllOnLoad(void)
 
 	CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)AntiCheatRoutine, 0, 0, 0));
 
-	printf("[CS2-AC.dll] plugin is installed\n");
+	LOG("plugin is installed\n");
 	return 1;
 }
 
