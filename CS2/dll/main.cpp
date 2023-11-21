@@ -9,7 +9,7 @@ HANDLE  mouse_device     = 0;
 WNDPROC game_window_proc = 0;
 DWORD   invalid_cnt      = 0;
 DWORD   autotrigger_cnt  = 0;
-UINT64  timestamp_mup    = 0;
+UINT64  timestamp_mup_ms = 0;
 
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -65,31 +65,32 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 	}
 	
+
 	//
-	// 0ms triggerbot detection
+	// triggerbot detection
 	//
 	{
 		if (uMsg == WM_LBUTTONDOWN)
 		{
-			if (timestamp_mup)
+			if (timestamp_mup_ms)
 			{
-				UINT64 current_time = std::chrono::duration_cast<std::chrono::microseconds>(
+				UINT64 current_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::high_resolution_clock::now().time_since_epoch())
 					.count();
 
-				UINT64 diff = current_time - timestamp_mup;
-				if (diff <= 15000)
+				UINT64 diff = current_ms - timestamp_mup_ms;
+				if (diff <= 15)
 				{
 					LOG("auto trigger detected %d\n", autotrigger_cnt);
 					autotrigger_cnt++;
 				}
-				timestamp_mup = 0;
+				timestamp_mup_ms = 0;
 
 			}
 		}
 		else if (uMsg == WM_LBUTTONUP)
 		{
-			timestamp_mup = std::chrono::duration_cast<std::chrono::microseconds>(
+			timestamp_mup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::high_resolution_clock::now().time_since_epoch())
 				.count();
 		}
