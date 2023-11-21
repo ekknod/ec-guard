@@ -1,8 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
-#include "utils.h"
+#include <windows.h>
 #include <stdio.h>
-
-#ifndef __linux__
 
 HANDLE  mouse_device     = 0;
 WNDPROC game_window_proc = 0;
@@ -63,7 +61,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
 }
 
+void AntiCheatRoutine(void)
+{
+	HWND window = 0;
+	
+	while (1)
+	{
+		window = FindWindowA("SDL_app", "Counter-Strike 2");
+
+		if (window != 0)
+		{
+			break;
+		}
+
+		Sleep(100);
+	}
+
+#ifndef __linux__
+	game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
 #endif
+}
 
 BOOL DllOnLoad(void)
 {
@@ -71,9 +88,9 @@ BOOL DllOnLoad(void)
 	AllocConsole();
 	freopen("CONOUT$", "w", stdout);
 #endif
-#ifndef __linux__
-	game_window_proc = (WNDPROC)SetWindowLongPtrW(FindWindowA("SDL_app", "Counter-Strike 2"), (-4), (LONG_PTR)WindowProc);
-#endif
+
+	CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)AntiCheatRoutine, 0, 0, 0));
+
 	printf("[CS2-AC.dll] plugin is installed\n");
 	return 1;
 }
