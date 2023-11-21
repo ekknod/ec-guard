@@ -5,9 +5,9 @@
 #include <filesystem>
 
 #define DEBUG
-#define LOG(...) printf("[anticheat.exe] " __VA_ARGS__)
+#define LOG(...) printf("[ec-guard.exe] " __VA_ARGS__)
 #define TARGET_GAME "cs2.exe"
-#define TARGET_DLL  "acmodule.dll"
+#define TARGET_DLL  "ec-guard.dll"
 
 
 
