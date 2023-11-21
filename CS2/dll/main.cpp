@@ -1,17 +1,21 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <stdio.h>
+#include <chrono>
 
 #define LOG(...) printf("[ec-guard.exe] " __VA_ARGS__)
 
 HANDLE  mouse_device     = 0;
 WNDPROC game_window_proc = 0;
 DWORD   invalid_cnt      = 0;
+DWORD   autotrigger_cnt  = 0;
+UINT64  timestamp_mup    = 0;
+
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	//
-	// mouse_event detection
+	// mouse input manipulation detection
 	//
 	{
 		if (uMsg == WM_INPUT)
@@ -60,6 +64,37 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 		}
 	}
+	
+	//
+	// 0ms triggerbot detection
+	//
+	{
+		if (uMsg == WM_LBUTTONDOWN)
+		{
+			if (timestamp_mup)
+			{
+				UINT64 current_time = std::chrono::duration_cast<std::chrono::microseconds>(
+					std::chrono::high_resolution_clock::now().time_since_epoch())
+					.count();
+
+				UINT64 diff = current_time - timestamp_mup;
+				if (diff <= 15000)
+				{
+					LOG("auto trigger detected %d\n", autotrigger_cnt);
+					autotrigger_cnt++;
+				}
+				timestamp_mup = 0;
+
+			}
+		}
+		else if (uMsg == WM_LBUTTONUP)
+		{
+			timestamp_mup = std::chrono::duration_cast<std::chrono::microseconds>(
+				std::chrono::high_resolution_clock::now().time_since_epoch())
+				.count();
+		}
+	}
+
 	return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
 }
 
