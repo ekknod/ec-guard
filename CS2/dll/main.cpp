@@ -1,19 +1,54 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <stdio.h>
+#include <vector>
 #include <chrono>
 
-#define LOG(...) printf("[ec-guard.exe] " __VA_ARGS__)
 
-HANDLE  mouse_device     = 0;
+#define LOG(...) printf("[ec-guard.dll] " __VA_ARGS__)
+
+
+typedef struct {
+	HANDLE handle;
+	UINT64 total_calls;
+} RAWINPUT_DEVICE ;
+std::vector<RAWINPUT_DEVICE> get_input_devices(void);
+
+std::vector<RAWINPUT_DEVICE> device_list;
 WNDPROC game_window_proc = 0;
 DWORD   invalid_cnt      = 0;
 DWORD   autotrigger_cnt  = 0;
 UINT64  timestamp_mup_ms = 0;
 
 
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	//
+	// block all non used devices
+	//
+	if (device_list.size() > 1)
+	{
+		RAWINPUT_DEVICE primary_mouse{};
+		UINT64          max_calls = 0;
+
+		for (RAWINPUT_DEVICE &dev : device_list)
+		{
+			if (dev.total_calls > max_calls)
+			{
+				max_calls     = dev.total_calls;
+				primary_mouse = dev;
+			}
+		}
+
+		if (max_calls > 50)
+		{
+			device_list.clear();
+			device_list.push_back(primary_mouse);
+			LOG("primary input device has been now selected\n");
+		}
+	}
+
+
 	//
 	// mouse input manipulation detection
 	//
@@ -24,28 +59,33 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			UINT size = sizeof(RAWINPUT);
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &data, &size, sizeof(RAWINPUTHEADER));
 
-			if (data.header.dwType == RIM_TYPEMOUSE)
+
+			if (data.header.dwType != RIM_TYPEMOUSE)
 			{
-				if (data.header.hDevice != mouse_device)
+				return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
+			}
+
+
+			BOOLEAN found = 0;
+			for (RAWINPUT_DEVICE &dev : device_list)
+			{
+				if (dev.handle == data.header.hDevice)
 				{
-					//
-					// todo: initialize legit mouse_device better way
-					//
-					if (mouse_device == 0)
-					{
-						mouse_device = data.header.hDevice;
-					}
-					else
-					{
-						invalid_cnt++;
-
-						LOG("invalid mouse input detected %d\n", invalid_cnt);
-
-						uMsg = WM_NULL;
-					}
+					found = 1;
+					dev.total_calls++;
+					break;
 				}
 			}
+
+
+			if (found == 0)
+			{
+				invalid_cnt++;
+				LOG("invalid mouse input detected %d\n", invalid_cnt);
+				uMsg = WM_NULL;
+			}
 		}
+
 
 		//
 		// https://stackoverflow.com/questions/69193249/how-to-distinguish-mouse-and-touchpad-events-using-getcurrentinputmessagesource
@@ -95,14 +135,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				.count();
 		}
 	}
-
 	return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
 }
 
-void AntiCheatRoutine(void)
+static void AntiCheatRoutine(void)
 {
 	HWND window = 0;
-	
 	while (1)
 	{
 		window = FindWindowA("SDL_app", "Counter-Strike 2");
@@ -114,38 +152,18 @@ void AntiCheatRoutine(void)
 
 		Sleep(100);
 	}
-
-#ifndef __linux__
+	device_list      = get_input_devices();
 	game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
-#endif
 }
 
 BOOL DllOnLoad(void)
 {
-#ifndef __linux__
 	AllocConsole();
 	freopen("CONOUT$", "w", stdout);
-#endif
-
 	CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)AntiCheatRoutine, 0, 0, 0));
-
 	LOG("plugin is installed\n");
 	return 1;
 }
-
-#ifdef __linux__
-int __attribute__((constructor)) DllMain(void)
-{
-	if (DllOnLoad())
-		return 0;
-	return -1;
-}
-
-void __attribute__((destructor)) DllUnload(void)
-{
-}
-
-#else
 
 BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 {
@@ -156,5 +174,57 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 	}
 	return ret;
 }
-#endif
+
+std::vector<RAWINPUT_DEVICE> get_input_devices(void)
+{
+	std::vector<RAWINPUT_DEVICE> devices;
+
+
+	//
+	// get number of devices
+	//
+	UINT device_count = 0;
+	GetRawInputDeviceList(0, &device_count, sizeof(RAWINPUTDEVICELIST));
+
+
+	//
+	// allocate space for device list
+	//
+	RAWINPUTDEVICELIST *device_list = (RAWINPUTDEVICELIST *)malloc(sizeof(RAWINPUTDEVICELIST) * device_count);
+
+
+	//
+	// get list of input devices
+	//
+	GetRawInputDeviceList(device_list, &device_count, sizeof(RAWINPUTDEVICELIST));
+
+
+	for (UINT i = 0; i < device_count; i++)
+	{
+		//
+		// skip non mouse devices ; we can adjust this in future
+		//
+		if (device_list[i].dwType != RIM_TYPEMOUSE)
+		{
+			continue;
+		}
+
+
+		//
+		// add new device to our dynamic list
+		//
+		RAWINPUT_DEVICE info{};
+		info.handle = device_list[i].hDevice;
+		devices.push_back(info);
+	}
+
+
+	//
+	// free resources
+	//
+	free(device_list);
+
+
+	return devices;
+}
 
