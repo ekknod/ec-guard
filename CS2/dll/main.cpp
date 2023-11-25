@@ -11,96 +11,99 @@
 typedef struct {
 	HANDLE handle;
 	UINT64 total_calls;
-} RAWINPUT_DEVICE ;
-std::vector<RAWINPUT_DEVICE> get_input_devices(void);
+} DEVICE_INFO ;
+std::vector<DEVICE_INFO> get_input_devices(void);
 
-std::vector<RAWINPUT_DEVICE> device_list;
-WNDPROC game_window_proc = 0;
-DWORD   invalid_cnt      = 0;
-DWORD   autotrigger_cnt  = 0;
-UINT64  timestamp_mup_ms = 0;
+
+namespace globals
+{
+	std::vector<DEVICE_INFO> device_list;
+	WNDPROC game_window_proc = 0;
+}
 
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	static DWORD  invalid_cnt     = 0;
+	static DWORD  autotrigger_cnt = 0;
+	static UINT64 timestamp_left  = 0;
+
+
 	//
 	// block all non used devices
 	//
-	if (device_list.size() > 1)
+	if (globals::device_list.size() > 1)
 	{
-		RAWINPUT_DEVICE primary_mouse{};
-		UINT64          max_calls = 0;
+		DEVICE_INFO primary_dev{};
+		UINT64      max_calls = 0;
 
-		for (RAWINPUT_DEVICE &dev : device_list)
+		for (DEVICE_INFO &dev : globals::device_list)
 		{
 			if (dev.total_calls > max_calls)
 			{
-				max_calls     = dev.total_calls;
-				primary_mouse = dev;
+				max_calls   = dev.total_calls;
+				primary_dev = dev;
 			}
 		}
 
 		if (max_calls > 50)
 		{
-			device_list.clear();
-			device_list.push_back(primary_mouse);
+			globals::device_list.clear();
+			globals::device_list.push_back(primary_dev);
 			LOG("primary input device has been now selected\n");
 		}
 	}
 
 
 	//
-	// mouse input manipulation detection
+	// validate incoming rawinput device
 	//
+	if (uMsg == WM_INPUT)
 	{
-		if (uMsg == WM_INPUT)
+		RAWINPUT data{};
+		UINT size = sizeof(RAWINPUT);
+		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &data, &size, sizeof(RAWINPUTHEADER));
+
+
+		if (data.header.dwType != RIM_TYPEMOUSE)
 		{
-			RAWINPUT data{};
-			UINT size = sizeof(RAWINPUT);
-			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &data, &size, sizeof(RAWINPUTHEADER));
+			return CallWindowProc(globals::game_window_proc, hwnd, uMsg, wParam, lParam );
+		}
 
 
-			if (data.header.dwType != RIM_TYPEMOUSE)
+		BOOLEAN found = 0;
+		for (DEVICE_INFO &dev : globals::device_list)
+		{
+			if (dev.handle == data.header.hDevice)
 			{
-				return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
-			}
-
-
-			BOOLEAN found = 0;
-			for (RAWINPUT_DEVICE &dev : device_list)
-			{
-				if (dev.handle == data.header.hDevice)
-				{
-					found = 1;
-					dev.total_calls++;
-					break;
-				}
-			}
-
-
-			if (found == 0)
-			{
-				invalid_cnt++;
-				LOG("invalid mouse input detected %d\n", invalid_cnt);
-				uMsg = WM_NULL;
+				found = 1;
+				dev.total_calls++;
+				break;
 			}
 		}
 
 
-		//
-		// https://stackoverflow.com/questions/69193249/how-to-distinguish-mouse-and-touchpad-events-using-getcurrentinputmessagesource
-		//
-		if ((uMsg >= WM_MOUSEFIRST && uMsg <= WM_MOUSELAST) || (uMsg >= WM_KEYFIRST && uMsg <= WM_KEYLAST) || (uMsg >= WM_TOUCH && uMsg <= WM_POINTERWHEEL))
+		if (found == 0)
 		{
-			INPUT_MESSAGE_SOURCE src;
-			if (GetCurrentInputMessageSource(&src))
+			LOG("invalid mouse input detected %d\n", ++invalid_cnt);
+			uMsg = WM_NULL;
+		}
+	}
+
+
+	//
+	// detect injected messages
+	// https://stackoverflow.com/questions/69193249/how-to-distinguish-mouse-and-touchpad-events-using-getcurrentinputmessagesource
+	//
+	if ((uMsg >= WM_MOUSEFIRST && uMsg <= WM_MOUSELAST) || (uMsg >= WM_KEYFIRST && uMsg <= WM_KEYLAST) || (uMsg >= WM_TOUCH && uMsg <= WM_POINTERWHEEL))
+	{
+		INPUT_MESSAGE_SOURCE src;
+		if (GetCurrentInputMessageSource(&src))
+		{
+			if (src.originId == IMO_INJECTED)
 			{
-				if (src.originId == IMO_INJECTED)
-				{
-					invalid_cnt++;
-					LOG("invalid mouse input detected %d\n", invalid_cnt);
-					uMsg = WM_NULL;
-				}
+				LOG("invalid mouse input detected %d\n", ++invalid_cnt);
+				uMsg = WM_NULL;
 			}
 		}
 	}
@@ -109,36 +112,34 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	//
 	// triggerbot detection
 	//
+	if (uMsg == WM_LBUTTONDOWN)
 	{
-		if (uMsg == WM_LBUTTONDOWN)
+		if (timestamp_left)
 		{
-			if (timestamp_mup_ms)
-			{
-				UINT64 current_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-					std::chrono::high_resolution_clock::now().time_since_epoch())
-					.count();
-
-				UINT64 diff = current_ms - timestamp_mup_ms;
-				if (diff <= 15)
-				{
-					LOG("auto trigger detected %d\n", autotrigger_cnt);
-					autotrigger_cnt++;
-				}
-				timestamp_mup_ms = 0;
-
-			}
-		}
-		else if (uMsg == WM_LBUTTONUP)
-		{
-			timestamp_mup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+			UINT64 current_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::high_resolution_clock::now().time_since_epoch())
 				.count();
+
+			UINT64 diff = current_ms - timestamp_left;
+			if (diff <= 15)
+			{
+				LOG("auto trigger detected %d\n", autotrigger_cnt);
+				autotrigger_cnt++;
+			}
+			timestamp_left = 0;
+
 		}
 	}
-	return CallWindowProc(game_window_proc, hwnd, uMsg, wParam, lParam );
+	else if (uMsg == WM_LBUTTONUP)
+	{
+		timestamp_left = std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::high_resolution_clock::now().time_since_epoch())
+			.count();
+	}
+	return CallWindowProc(globals::game_window_proc, hwnd, uMsg, wParam, lParam );
 }
 
-static void AntiCheatRoutine(void)
+static void MainThread(void)
 {
 	HWND window = 0;
 	while (1)
@@ -152,32 +153,26 @@ static void AntiCheatRoutine(void)
 
 		Sleep(100);
 	}
-	device_list      = get_input_devices();
-	game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
-}
+	globals::device_list      = get_input_devices();
+	globals::game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
 
-BOOL DllOnLoad(void)
-{
-	AllocConsole();
-	freopen("CONOUT$", "w", stdout);
-	CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)AntiCheatRoutine, 0, 0, 0));
 	LOG("plugin is installed\n");
-	return 1;
 }
 
 BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 {
-	BOOL ret = 0;
 	if (dwReason == DLL_PROCESS_ATTACH)
 	{
-		ret = DllOnLoad();
+		AllocConsole();
+		freopen("CONOUT$", "w", stdout);
+		CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, 0, 0, 0));
 	}
-	return ret;
+	return 1;
 }
 
-std::vector<RAWINPUT_DEVICE> get_input_devices(void)
+std::vector<DEVICE_INFO> get_input_devices(void)
 {
-	std::vector<RAWINPUT_DEVICE> devices;
+	std::vector<DEVICE_INFO> devices;
 
 
 	//
@@ -213,7 +208,7 @@ std::vector<RAWINPUT_DEVICE> get_input_devices(void)
 		//
 		// add new device to our dynamic list
 		//
-		RAWINPUT_DEVICE info{};
+		DEVICE_INFO info{};
 		info.handle = device_list[i].hDevice;
 		devices.push_back(info);
 	}
