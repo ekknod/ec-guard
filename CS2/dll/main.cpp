@@ -22,6 +22,9 @@ namespace globals
 }
 
 
+//
+// missing component: validating incoming input to game camera
+//
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	static DWORD  invalid_cnt     = 0;
