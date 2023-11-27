@@ -1,26 +1,24 @@
-#define _CRT_SECURE_NO_WARNINGS
-#include <windows.h>
-#include <stdio.h>
-#include <vector>
-#include <chrono>
+#include "main.h"
 
+//
+// current components:
+// - microsoft code policy
+// - usermode input inject detection
+//
+// missing components:
+// - validating mouse packets to game camera (this would cause harm for internal cheats)
+// - enabling most strict microsoft code policy (no .text patches, no dynamic execution)
+// - memory access detection (honeypot variable + side channel detection)
+// - .data encryption/decryption (block external/DMA cheats)
+//
 
-#define LOG(...) printf("[ec-guard.dll] " __VA_ARGS__)
-
-
-typedef struct {
-	HANDLE handle;
-	UINT64 total_calls;
-} DEVICE_INFO ;
 std::vector<DEVICE_INFO> get_input_devices(void);
-
 
 namespace globals
 {
 	std::vector<DEVICE_INFO> device_list;
 	WNDPROC game_window_proc = 0;
 }
-
 
 //
 // missing component: validating incoming input to game camera
@@ -158,8 +156,23 @@ static void MainThread(void)
 	}
 	globals::device_list      = get_input_devices();
 	globals::game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
-
 	LOG("plugin is installed\n");
+}
+
+VOID CALLBACK DllCallback(
+  _In_      ULONG NotificationReason,
+  _In_      PCLDR_DLL_NOTIFICATION_DATA NotificationData,
+  _In_opt_  PVOID Context
+)
+{
+	UNREFERENCED_PARAMETER(Context);
+	if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_LOADED)
+	{
+		LOG("%ws\n", NotificationData->Loaded.BaseDllName->Buffer);
+	}
+	else if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_UNLOADED)
+	{
+	}
 }
 
 BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
@@ -169,6 +182,65 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 		AllocConsole();
 		freopen("CONOUT$", "w", stdout);
 		CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, 0, 0, 0));
+
+
+
+		/*
+		issues with strict ProcessDynamicCodePolicy (build 20/11/2023)
+		cs2.exe:
+		.text:0x12a456 is modified (4 bytes): 12 40 01 00 -> D9 E5 F7 7F
+		.text:0x12a4f7 is modified (4 bytes): 12 40 01 00 -> D9 E5 F7 7F
+
+		tier0.dll:
+		.text:0x192ee6 is modified (4 bytes): 19 80 01 00 -> 81 79 FE 7F
+		.text:0x192f87 is modified (4 bytes): 19 80 01 00 -> 81 79 FE 7F
+
+		libgobject-2.0-0.dll:
+		.text:0x25e2a is modified (4 bytes): 00 80 01 00 -> 68 0C 8E 02
+
+		dbghelp.dll:
+		- multiple .text section changes
+
+		GameOverlayRenderer64.dll:
+		- multiple native library hooks
+
+		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
+		PMDCP.AllowRemoteDowngrade = 0;
+		PMDCP.ProhibitDynamicCode = 1;
+		SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &PMDCP, sizeof(PMDCP));
+		*/
+
+
+		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
+		PMDCP.AllowRemoteDowngrade = 0;
+		PMDCP.AuditProhibitDynamicCode = 1;
+		SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &PMDCP, sizeof(PMDCP));
+
+		PROCESS_MITIGATION_DEP_POLICY PMDP{};
+		PMDP.Enable = 1;
+		PMDP.Permanent = 1;
+		SetProcessMitigationPolicy(ProcessDEPPolicy, &PMDP, sizeof(PMDP));
+
+		PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY PMCFGP{};
+		PMCFGP.EnableControlFlowGuard = 1;
+		PMCFGP.StrictMode = 1;
+		SetProcessMitigationPolicy(ProcessControlFlowGuardPolicy, &PMCFGP, sizeof(PMCFGP));
+
+		PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY PMBSP{};
+		PMBSP.AuditMicrosoftSignedOnly = 1;
+		PMBSP.MitigationOptIn = 1;
+		SetProcessMitigationPolicy(ProcessSignaturePolicy, &PMBSP, sizeof(PMBSP));
+
+		NTSTATUS (NTAPI *LdrRegisterDllNotification)(
+		  _In_     ULONG                          Flags,
+		  _In_     PLDR_DLL_NOTIFICATION_FUNCTION NotificationFunction,
+		  _In_opt_ PVOID                          Context,
+		  _Out_    PVOID                          *Cookie
+		);
+		VOID *dll_callback_handle = 0;
+		*(void**)&LdrRegisterDllNotification = (void*)GetProcAddress(LoadLibraryA("ntdll.dll"), "LdrRegisterDllNotification");
+		LdrRegisterDllNotification(0, DllCallback, 0, &dll_callback_handle);
+
 	}
 	return 1;
 }
