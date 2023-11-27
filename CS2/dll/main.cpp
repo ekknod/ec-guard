@@ -2,7 +2,7 @@
 
 //
 // current components:
-// - microsoft code policy
+// - microsoft code policy (not complete)
 // - usermode input inject detection
 //
 // missing components:
@@ -186,7 +186,31 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 
 
 		/*
-		issues with strict ProcessDynamicCodePolicy (build 20/11/2023)
+		potential flaw in Valve code integrity (27.11)
+
+
+		the issue:
+			LoadLibrary has to do loading time prefixes for image sections
+
+		the reason for it:
+			compiler settings / version
+
+		outcome:
+			images are not ProcessDynamicCodePolicy compatible / potentially vulnerable for early patching attack
+
+
+		some game-modules are potentially vulnerable to .text patches because of LoadLibrary IMAGE relocations,
+		if patches are placed **early** enough they will more likely pass code integrity check,
+		because the hash is generated after the IMAGE relocations are done.
+		they can't do easy on-disk comparison, before making integrity hashes because of those LoadLibrary prefixes.
+
+		tl'dr: if attacker would manipulate image section before Anti-Cheat has made their integrity hash,
+		it would leave attacker own patches as whitelisted more likely
+
+		***(Not tested in action)***
+
+		regards, ekknod & emlinhax
+
 		cs2.exe:
 		.text:0x12a456 is modified (4 bytes): 12 40 01 00 -> D9 E5 F7 7F
 		.text:0x12a4f7 is modified (4 bytes): 12 40 01 00 -> D9 E5 F7 7F
@@ -199,10 +223,7 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 		.text:0x25e2a is modified (4 bytes): 00 80 01 00 -> 68 0C 8E 02
 
 		dbghelp.dll:
-		- multiple .text section changes
-
-		GameOverlayRenderer64.dll:
-		- multiple native library hooks
+		- multiple similar .text changes
 
 		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
 		PMDCP.AllowRemoteDowngrade = 0;
@@ -230,6 +251,7 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 		PMBSP.AuditMicrosoftSignedOnly = 1;
 		PMBSP.MitigationOptIn = 1;
 		SetProcessMitigationPolicy(ProcessSignaturePolicy, &PMBSP, sizeof(PMBSP));
+
 
 		NTSTATUS (NTAPI *LdrRegisterDllNotification)(
 		  _In_     ULONG                          Flags,
