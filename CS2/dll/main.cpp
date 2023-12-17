@@ -186,44 +186,9 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 
 
 		/*
-		potential flaw in Valve code integrity (27.11)
 
-
-		the issue:
-			LoadLibrary has to do loading time prefixes for image sections
-
-		the reason for it:
-			compiler settings / version
-
-		outcome:
-			images are not ProcessDynamicCodePolicy compatible / potentially vulnerable for early patching attack
-
-
-		some game-modules are potentially vulnerable to .text patches because of LoadLibrary IMAGE relocations,
-		if patches are placed **early** enough they will more likely pass code integrity check,
-		because the hash is generated after the IMAGE relocations are done.
-		they can't do easy on-disk comparison, before making integrity hashes because of those LoadLibrary prefixes.
-
-		tl'dr: if attacker would manipulate image section before Anti-Cheat has made their integrity hash,
-		it would leave attacker own patches as whitelisted more likely
-
-		***(Not tested in action)***
-
-		regards, ekknod & emlinhax
-
-		cs2.exe:
-		.text:0x12a456 is modified (4 bytes): 12 40 01 00 -> D9 E5 F7 7F
-		.text:0x12a4f7 is modified (4 bytes): 12 40 01 00 -> D9 E5 F7 7F
-
-		tier0.dll:
-		.text:0x192ee6 is modified (4 bytes): 19 80 01 00 -> 81 79 FE 7F
-		.text:0x192f87 is modified (4 bytes): 19 80 01 00 -> 81 79 FE 7F
-
-		libgobject-2.0-0.dll:
-		.text:0x25e2a is modified (4 bytes): 00 80 01 00 -> 68 0C 8E 02
-
-		dbghelp.dll:
-		- multiple similar .text changes
+		proper dynamic code policy can't be applied,
+		because some of game core components are doing it :(
 
 		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
 		PMDCP.AllowRemoteDowngrade = 0;
@@ -234,7 +199,7 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 
 		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
 		PMDCP.AllowRemoteDowngrade = 0;
-		PMDCP.AuditProhibitDynamicCode = 1;
+		PMDCP.ProhibitDynamicCode = 1;
 		SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &PMDCP, sizeof(PMDCP));
 
 		PROCESS_MITIGATION_DEP_POLICY PMDP{};
