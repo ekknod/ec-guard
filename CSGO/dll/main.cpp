@@ -124,8 +124,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 			UINT64 diff = current_ms - timestamp_left;
 			if (diff <= 15)
 			{
-				LOG("auto trigger detected %d\n", autotrigger_cnt);
-				autotrigger_cnt++;
+				LOG("auto trigger detected %d\n", ++autotrigger_cnt);
 			}
 			timestamp_left = 0;
 
@@ -145,7 +144,7 @@ static void MainThread(void)
 	HWND window = 0;
 	while (1)
 	{
-		window = FindWindowA("SDL_app", "Counter-Strike 2");
+		window = FindWindowA("Valve001", 0);
 
 		if (window != 0)
 		{
@@ -155,7 +154,7 @@ static void MainThread(void)
 		Sleep(100);
 	}
 	globals::device_list      = get_input_devices();
-	globals::game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
+	globals::game_window_proc = (WNDPROC)SetWindowLongPtrW(window, GWL_WNDPROC, (LONG)WindowProc);
 	LOG("plugin is installed\n");
 }
 
@@ -169,6 +168,29 @@ VOID CALLBACK DllCallback(
 	if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_LOADED)
 	{
 		LOG("%ws\n", NotificationData->Loaded.BaseDllName->Buffer);
+		//
+		// block GameOverlayRenderer.dll
+		// doesn't have any purpose, just an example how its done :=)
+		//
+		if (!_wcsicmp(NotificationData->Loaded.BaseDllName->Buffer, L"GameOverlayRenderer.dll"))
+		{
+			uintptr_t a0, a1;
+
+			a0 = *(uintptr_t*)(*(uintptr_t*)(__readfsdword(0x30) + 0x0C) + 0x14);
+			a1 = *(uintptr_t*)(a0 + 4);
+			while (a0 != a1) {
+				if (*(uintptr_t*)(a0 + 0x10) == (uintptr_t)NotificationData->Loaded.DllBase)
+				{
+					uintptr_t ret = (uintptr_t)NotificationData->Loaded.DllBase + 0x1000;
+					while (*(unsigned int*)(ret) != 0xCC0000C2)
+					{
+						ret++;
+					}
+					*(uintptr_t*)(a0 + 0x14) = ret;
+				}
+				a0 = *(uintptr_t*)(a0);
+			}
+		}
 	}
 	else if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_UNLOADED)
 	{
@@ -182,8 +204,6 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 		AllocConsole();
 		freopen("CONOUT$", "w", stdout);
 		CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, 0, 0, 0));
-
-
 
 		/*
 
