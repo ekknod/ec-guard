@@ -119,9 +119,9 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 				.count();
 
 			UINT64 diff = current_ms - timestamp_left;
-			if (diff <= 15)
+			if (diff <= 2)
 			{
-				LOG("auto trigger detected %d\n", ++autotrigger_cnt);
+				LOG("auto trigger detected [ms: %lld] %d\n", diff, autotrigger_cnt++);
 			}
 			timestamp_left = 0;
 
