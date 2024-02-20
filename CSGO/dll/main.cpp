@@ -2,13 +2,10 @@
 
 //
 // current components:
-// - microsoft code policy (not complete)
 // - usermode input inject detection
 //
 // missing components:
 // - validating mouse packets to game camera (this would cause harm for internal cheats)
-// - enabling most strict microsoft code policy (no .text patches, no dynamic execution)
-// - memory access detection (honeypot variable + side channel detection)
 // - .data encryption/decryption (block external/DMA cheats)
 //
 
@@ -168,29 +165,6 @@ VOID CALLBACK DllCallback(
 	if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_LOADED)
 	{
 		LOG("%ws\n", NotificationData->Loaded.BaseDllName->Buffer);
-		//
-		// block GameOverlayRenderer.dll
-		// doesn't have any purpose, just an example how its done :=)
-		//
-		if (!_wcsicmp(NotificationData->Loaded.BaseDllName->Buffer, L"GameOverlayRenderer.dll"))
-		{
-			uintptr_t a0, a1;
-
-			a0 = *(uintptr_t*)(*(uintptr_t*)(__readfsdword(0x30) + 0x0C) + 0x14);
-			a1 = *(uintptr_t*)(a0 + 4);
-			while (a0 != a1) {
-				if (*(uintptr_t*)(a0 + 0x10) == (uintptr_t)NotificationData->Loaded.DllBase)
-				{
-					uintptr_t ret = (uintptr_t)NotificationData->Loaded.DllBase + 0x1000;
-					while (*(unsigned int*)(ret) != 0xCC0000C2)
-					{
-						ret++;
-					}
-					*(uintptr_t*)(a0 + 0x14) = ret;
-				}
-				a0 = *(uintptr_t*)(a0);
-			}
-		}
 	}
 	else if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_UNLOADED)
 	{
@@ -204,39 +178,6 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 		AllocConsole();
 		freopen("CONOUT$", "w", stdout);
 		CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, 0, 0, 0));
-
-		/*
-
-		proper dynamic code policy can't be applied,
-		because some of game core components are doing it :(
-
-		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
-		PMDCP.AllowRemoteDowngrade = 0;
-		PMDCP.ProhibitDynamicCode = 1;
-		SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &PMDCP, sizeof(PMDCP));
-		*/
-
-
-		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
-		PMDCP.AllowRemoteDowngrade = 0;
-		PMDCP.AuditProhibitDynamicCode = 1;
-		SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &PMDCP, sizeof(PMDCP));
-
-		PROCESS_MITIGATION_DEP_POLICY PMDP{};
-		PMDP.Enable = 1;
-		PMDP.Permanent = 1;
-		SetProcessMitigationPolicy(ProcessDEPPolicy, &PMDP, sizeof(PMDP));
-
-		PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY PMCFGP{};
-		PMCFGP.EnableControlFlowGuard = 1;
-		PMCFGP.StrictMode = 1;
-		SetProcessMitigationPolicy(ProcessControlFlowGuardPolicy, &PMCFGP, sizeof(PMCFGP));
-
-		PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY PMBSP{};
-		PMBSP.AuditMicrosoftSignedOnly = 1;
-		PMBSP.MitigationOptIn = 1;
-		SetProcessMitigationPolicy(ProcessSignaturePolicy, &PMBSP, sizeof(PMBSP));
-
 
 		NTSTATUS (NTAPI *LdrRegisterDllNotification)(
 		  _In_     ULONG                          Flags,

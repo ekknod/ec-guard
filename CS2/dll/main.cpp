@@ -2,14 +2,10 @@
 
 //
 // current components:
-// - microsoft code policy (not complete)
 // - usermode input inject detection
 //
 // missing components:
 // - validating mouse packets to game camera (this would cause harm for internal cheats)
-// - enabling most strict microsoft code policy (no .text patches, no dynamic execution)
-// - memory access detection (honeypot variable + side channel detection)
-// - .data encryption/decryption (block external/DMA cheats)
 //
 
 std::vector<DEVICE_INFO> get_input_devices(void);
@@ -182,42 +178,6 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID Reserved)
 		AllocConsole();
 		freopen("CONOUT$", "w", stdout);
 		CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, 0, 0, 0));
-
-
-
-		/*
-
-		proper dynamic code policy can't be applied,
-		because some of game core components are doing it :(
-
-		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
-		PMDCP.AllowRemoteDowngrade = 0;
-		PMDCP.ProhibitDynamicCode = 1;
-		SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &PMDCP, sizeof(PMDCP));
-		*/
-
-
-		PROCESS_MITIGATION_DYNAMIC_CODE_POLICY PMDCP{};
-		PMDCP.AllowRemoteDowngrade = 0;
-		PMDCP.AuditProhibitDynamicCode = 1;
-		SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &PMDCP, sizeof(PMDCP));
-
-		PROCESS_MITIGATION_DEP_POLICY PMDP{};
-		PMDP.Enable = 1;
-		PMDP.Permanent = 1;
-		SetProcessMitigationPolicy(ProcessDEPPolicy, &PMDP, sizeof(PMDP));
-
-		PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY PMCFGP{};
-		PMCFGP.EnableControlFlowGuard = 1;
-		PMCFGP.StrictMode = 1;
-		SetProcessMitigationPolicy(ProcessControlFlowGuardPolicy, &PMCFGP, sizeof(PMCFGP));
-
-		PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY PMBSP{};
-		PMBSP.AuditMicrosoftSignedOnly = 1;
-		PMBSP.MitigationOptIn = 1;
-		SetProcessMitigationPolicy(ProcessSignaturePolicy, &PMBSP, sizeof(PMBSP));
-
-
 		NTSTATUS (NTAPI *LdrRegisterDllNotification)(
 		  _In_     ULONG                          Flags,
 		  _In_     PLDR_DLL_NOTIFICATION_FUNCTION NotificationFunction,
