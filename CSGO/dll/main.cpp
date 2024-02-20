@@ -23,8 +23,6 @@ namespace globals
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	static DWORD  invalid_cnt     = 0;
-	static DWORD  autotrigger_cnt = 0;
-	static UINT64 timestamp_left  = 0;
 
 
 	//
@@ -104,34 +102,6 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 				uMsg = WM_NULL;
 			}
 		}
-	}
-	
-
-	//
-	// triggerbot detection
-	//
-	if (uMsg == WM_LBUTTONDOWN)
-	{
-		if (timestamp_left)
-		{
-			UINT64 current_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-				std::chrono::high_resolution_clock::now().time_since_epoch())
-				.count();
-
-			UINT64 diff = current_ms - timestamp_left;
-			if (diff <= 2)
-			{
-				LOG("auto trigger detected [ms: %lld] %d\n", diff, autotrigger_cnt++);
-			}
-			timestamp_left = 0;
-
-		}
-	}
-	else if (uMsg == WM_LBUTTONUP)
-	{
-		timestamp_left = std::chrono::duration_cast<std::chrono::milliseconds>(
-			std::chrono::high_resolution_clock::now().time_since_epoch())
-			.count();
 	}
 	return CallWindowProc(globals::game_window_proc, hwnd, uMsg, wParam, lParam );
 }
