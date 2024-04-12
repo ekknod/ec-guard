@@ -5,6 +5,7 @@
 #include <Ntsecapi.h>
 #include <vector>
 #include <chrono>
+#include <MinHook.h>
 
 typedef const UNICODE_STRING * PCUNICODE_STRING;
 typedef struct _LDR_DLL_LOADED_NOTIFICATION_DATA {
@@ -38,4 +39,6 @@ typedef struct {
 
 #define DEBUG
 #define LOG(...) printf("[ec-guard.dll] " __VA_ARGS__)
+
+typedef ULONG_PTR QWORD;
 

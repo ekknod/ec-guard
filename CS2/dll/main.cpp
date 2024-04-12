@@ -14,6 +14,7 @@ namespace globals
 {
 	std::vector<DEVICE_INFO> device_list;
 	WNDPROC game_window_proc = 0;
+	DWORD invalid_cnt = 0;
 }
 
 //
@@ -21,9 +22,6 @@ namespace globals
 //
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	static DWORD  invalid_cnt = 0;
-
-
 	//
 	// block all non used devices
 	//
@@ -80,7 +78,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 
 		if (found == 0)
 		{
-			LOG("invalid mouse input detected %d\n", ++invalid_cnt);
+			LOG("invalid mouse input detected %d\n", ++globals::invalid_cnt);
 			uMsg = WM_NULL;
 		}
 	}
@@ -97,12 +95,64 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		{
 			if (src.originId == IMO_INJECTED)
 			{
-				LOG("invalid mouse input detected %d\n", ++invalid_cnt);
+				LOG("invalid mouse input detected %d\n", ++globals::invalid_cnt);
 				uMsg = WM_NULL;
 			}
 		}
 	}
 	return CallWindowProc(globals::game_window_proc, hwnd, uMsg, wParam, lParam );
+}
+
+__int64 (__fastcall *oWIN_HandleRawMouseInput)(QWORD timestamp, QWORD param1, HANDLE hDevice, RAWMOUSE *rawmouse);
+__int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE hDevice, RAWMOUSE *rawmouse)
+{
+	//
+	// block all non used devices
+	//
+	if (globals::device_list.size() > 1)
+	{
+		DEVICE_INFO primary_dev{};
+		UINT64      max_calls = 0;
+
+		for (DEVICE_INFO &dev : globals::device_list)
+		{
+			if (dev.total_calls > max_calls)
+			{
+				max_calls   = dev.total_calls;
+				primary_dev = dev;
+			}
+		}
+
+		if (max_calls > 50)
+		{
+			globals::device_list.clear();
+			globals::device_list.push_back(primary_dev);
+			LOG("primary input device has been now selected\n");
+		}
+	}
+
+
+	//
+	// validate incoming rawinput device
+	//
+	BOOLEAN found = 0;
+	for (DEVICE_INFO& dev : globals::device_list)
+	{
+		if (dev.handle == hDevice)
+		{
+			found = 1;
+			dev.total_calls++;
+			break;
+		}
+	}
+
+	if (found == 0)
+	{
+		LOG("invalid mouse input detected %d\n", ++globals::invalid_cnt);
+		memset(rawmouse, 0, sizeof(RAWMOUSE));
+	}
+
+	return oWIN_HandleRawMouseInput(timestamp, param1, hDevice, rawmouse);
 }
 
 static void MainThread(void)
@@ -121,6 +171,20 @@ static void MainThread(void)
 	}
 	globals::device_list      = get_input_devices();
 	globals::game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
+
+	QWORD sdl = 0;
+	while (!(sdl = (QWORD)GetModuleHandleA("SDL3.dll"))) Sleep(100);
+
+	//
+	// hardcoded, just wanted to write this quick
+	//
+	QWORD sdl_rawinput = sdl + 0xE5B40;
+
+
+	MH_Initialize();
+	MH_CreateHook((LPVOID)sdl_rawinput, &WIN_HandleRawMouseInput, (LPVOID*)&oWIN_HandleRawMouseInput);
+	MH_EnableHook((LPVOID)sdl_rawinput);
+
 	LOG("plugin is installed\n");
 }
 
@@ -133,7 +197,7 @@ VOID CALLBACK DllCallback(
 	UNREFERENCED_PARAMETER(Context);
 	if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_LOADED)
 	{
-		LOG("%ws\n", NotificationData->Loaded.BaseDllName->Buffer);
+		// LOG("%ws\n", NotificationData->Loaded.BaseDllName->Buffer);
 	}
 	else if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_UNLOADED)
 	{

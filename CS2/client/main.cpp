@@ -76,7 +76,7 @@ int main(void)
 	//
 	// get command line
 	//
-	std::string command_line = get_process_cmd(process_handle, info.path);
+	std::string command_line = get_process_cmd(process_handle, info.path) + " -insecure +sv_lan 1";
 
 
 	while (!TerminateProcess(process_handle, EXIT_SUCCESS))
