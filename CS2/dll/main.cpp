@@ -23,68 +23,6 @@ namespace globals
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	//
-	// block all non used devices
-	//
-	if (globals::device_list.size() > 1)
-	{
-		DEVICE_INFO primary_dev{};
-		UINT64      max_calls = 0;
-
-		for (DEVICE_INFO &dev : globals::device_list)
-		{
-			if (dev.total_calls > max_calls)
-			{
-				max_calls   = dev.total_calls;
-				primary_dev = dev;
-			}
-		}
-
-		if (max_calls > 50)
-		{
-			globals::device_list.clear();
-			globals::device_list.push_back(primary_dev);
-			LOG("primary input device has been now selected\n");
-		}
-	}
-
-
-	//
-	// validate incoming rawinput device
-	//
-	if (uMsg == WM_INPUT)
-	{
-		RAWINPUT data{};
-		UINT size = sizeof(RAWINPUT);
-		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &data, &size, sizeof(RAWINPUTHEADER));
-
-
-		if (data.header.dwType != RIM_TYPEMOUSE)
-		{
-			return CallWindowProc(globals::game_window_proc, hwnd, uMsg, wParam, lParam );
-		}
-
-
-		BOOLEAN found = 0;
-		for (DEVICE_INFO &dev : globals::device_list)
-		{
-			if (dev.handle == data.header.hDevice)
-			{
-				found = 1;
-				dev.total_calls++;
-				break;
-			}
-		}
-
-
-		if (found == 0)
-		{
-			LOG("invalid mouse input detected %d\n", ++globals::invalid_cnt);
-			uMsg = WM_NULL;
-		}
-	}
-
-
-	//
 	// detect injected messages
 	// https://stackoverflow.com/questions/69193249/how-to-distinguish-mouse-and-touchpad-events-using-getcurrentinputmessagesource
 	//
