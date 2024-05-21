@@ -37,8 +37,18 @@ typedef struct {
 #define LDR_DLL_NOTIFICATION_REASON_LOADED 1
 #define LDR_DLL_NOTIFICATION_REASON_UNLOADED 2
 
+
+inline void FontColor(int color=0x07) { SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color); }
+
+
 #define DEBUG
-#define LOG(...) printf("[ec-guard.dll] " __VA_ARGS__)
+
+#define LOG(...) \
+FontColor(3); \
+printf("[ec-guard.dll] "); \
+FontColor(7); \
+printf(__VA_ARGS__); \
+
 
 typedef ULONG_PTR QWORD;
 

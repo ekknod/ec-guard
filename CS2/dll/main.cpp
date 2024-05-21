@@ -9,6 +9,7 @@
 //
 
 std::vector<DEVICE_INFO> get_input_devices(void);
+QWORD FindPattern(QWORD base, unsigned char* pattern, unsigned char* mask);
 
 namespace globals
 {
@@ -121,6 +122,7 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 					globals::device_list.clear();
 					globals::device_list.push_back(device);
 					new_device.total_calls = 0;
+					LOG("primary input device has been now selected\n");
 				}
 			}
 		}
@@ -147,21 +149,27 @@ static void MainThread(void)
 
 		Sleep(100);
 	}
-	globals::device_list      = get_input_devices();
-	globals::game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
+	globals::device_list = get_input_devices();
 
 	QWORD sdl = 0;
 	while (!(sdl = (QWORD)GetModuleHandleA("SDL3.dll"))) Sleep(100);
 
-	//
-	// hardcoded, just wanted to write this quick
-	//
-	QWORD sdl_rawinput = sdl + 0xE5B40;
+	// sdl + 0xE5B40;
+	QWORD sdl_rawinput = FindPattern(sdl, (PBYTE)"\x48\x8B\xCD\xE8\x00\x00\x00\x00\x8B\x43\x04", (PBYTE)"xxxx????xxx");
+	if (sdl_rawinput == 0)
+	{
+		LOG("plugin is outdated\n");
+		return;
+	}
 
+	sdl_rawinput += 3;
+	sdl_rawinput = (sdl_rawinput + 5) + *(int*)(sdl_rawinput + 1);
 
 	MH_Initialize();
 	MH_CreateHook((LPVOID)sdl_rawinput, &WIN_HandleRawMouseInput, (LPVOID*)&oWIN_HandleRawMouseInput);
 	MH_EnableHook((LPVOID)sdl_rawinput);
+
+	globals::game_window_proc = (WNDPROC)SetWindowLongPtrW(window, (-4), (LONG_PTR)WindowProc);
 
 	LOG("plugin is installed\n");
 }
@@ -254,5 +262,62 @@ std::vector<DEVICE_INFO> get_input_devices(void)
 
 
 	return devices;
+}
+
+static int CheckMask(unsigned char* base, unsigned char* pattern, unsigned char* mask)
+{
+	for (; *mask; ++base, ++pattern, ++mask)
+		if (*mask == 'x' && *base != *pattern)
+			return 0;
+	return 1;
+}
+
+void *FindPatternEx(unsigned char* base, QWORD size, unsigned char* pattern, unsigned char* mask)
+{
+	size -= strlen((const char *)mask);
+	for (QWORD i = 0; i <= size; ++i) {
+		void* addr = &base[i];
+		if (CheckMask((unsigned char *)addr, pattern, mask))
+			return addr;
+	}
+	return 0;
+}
+
+QWORD FindPattern(QWORD base, unsigned char* pattern, unsigned char* mask)
+{
+	if (base == 0)
+	{
+		return 0;
+	}
+
+	QWORD nt_header = (QWORD)*(DWORD*)(base + 0x03C) + base;
+	if (nt_header == base)
+	{
+		return 0;
+	}
+
+	WORD machine = *(WORD*)(nt_header + 0x4);
+	QWORD section_header = machine == 0x8664 ?
+		nt_header + 0x0108 :
+		nt_header + 0x00F8;
+
+	for (WORD i = 0; i < *(WORD*)(nt_header + 0x06); i++) {
+		QWORD section = section_header + ((QWORD)i * 40);
+
+		DWORD section_characteristics = *(DWORD*)(section + 0x24);
+
+		if (section_characteristics & 0x00000020 && !(section_characteristics & 0x02000000))
+		{
+			QWORD virtual_address = base + (QWORD)*(DWORD*)(section + 0x0C);
+			DWORD virtual_size = *(DWORD*)(section + 0x08);
+
+			void *found_pattern = FindPatternEx( (unsigned char*)virtual_address, virtual_size, pattern, mask);
+			if (found_pattern)
+			{
+				return (QWORD)found_pattern;
+			}
+		}
+	}
+	return 0;
 }
 
