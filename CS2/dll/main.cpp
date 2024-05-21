@@ -44,6 +44,8 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 __int64 (__fastcall *oWIN_HandleRawMouseInput)(QWORD timestamp, QWORD param1, HANDLE hDevice, RAWMOUSE *rawmouse);
 __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE hDevice, RAWMOUSE *rawmouse)
 {
+	static DEVICE_INFO new_device{};
+
 	//
 	// block all non used devices
 	//
@@ -88,8 +90,46 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 	{
 		LOG("invalid mouse input detected %d\n", ++globals::invalid_cnt);
 		memset(rawmouse, 0, sizeof(RAWMOUSE));
-	}
 
+		if (new_device.handle == hDevice)
+		{
+			new_device.total_calls++;
+		}
+		else
+		{
+			if (new_device.handle)
+			{
+				new_device.total_calls = 0;
+			}
+		}
+
+		//
+		// initialize new device if invalid cnt reaches 150
+		// - in case player decide to change mouse mid game
+		// - this function is going to change the primary device
+		//
+		if (new_device.total_calls > 150)
+		{
+			std::vector<DEVICE_INFO> devices = get_input_devices();
+			for (DEVICE_INFO &device : devices)
+			{
+				if (device.handle == hDevice)
+				{
+					//
+					// select new primary device
+					//
+					globals::device_list.clear();
+					globals::device_list.push_back(device);
+					new_device.total_calls = 0;
+				}
+			}
+		}
+		new_device.handle = hDevice;
+	}
+	else
+	{
+		new_device.total_calls = 0;
+	}
 	return oWIN_HandleRawMouseInput(timestamp, param1, hDevice, rawmouse);
 }
 
