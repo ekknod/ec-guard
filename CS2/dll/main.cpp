@@ -155,15 +155,12 @@ static void MainThread(void)
 	while (!(sdl = (QWORD)GetModuleHandleA("SDL3.dll"))) Sleep(100);
 
 	// sdl + 0xE5B40;
-	QWORD sdl_rawinput = FindPattern(sdl, (PBYTE)"\x48\x8B\xCD\xE8\x00\x00\x00\x00\x8B\x43\x04", (PBYTE)"xxxx????xxx");
+	QWORD sdl_rawinput = FindPattern(sdl, (PBYTE)"\x48\x89\x4C\x24\x08\x53\x55\x56\x41\x56\x48\x83\xEC\x68\x83\xBA", (PBYTE)"xxxxxxxxxxxxxxxx");
 	if (sdl_rawinput == 0)
 	{
 		LOG("plugin is outdated\n");
 		return;
 	}
-
-	sdl_rawinput += 3;
-	sdl_rawinput = (sdl_rawinput + 5) + *(int*)(sdl_rawinput + 1);
 
 	MH_Initialize();
 	MH_CreateHook((LPVOID)sdl_rawinput, &WIN_HandleRawMouseInput, (LPVOID*)&oWIN_HandleRawMouseInput);
