@@ -32,6 +32,7 @@ typedef VOID (CALLBACK * PLDR_DLL_NOTIFICATION_FUNCTION)(
 typedef struct {
 	HANDLE handle;
 	UINT64 total_calls;
+	UINT64 timestamp;
 } DEVICE_INFO ;
 
 #define LDR_DLL_NOTIFICATION_REASON_LOADED 1

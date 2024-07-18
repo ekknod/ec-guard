@@ -66,6 +66,7 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 
 		if (max_calls > 50)
 		{
+			primary_dev.timestamp = timestamp;
 			globals::device_list.clear();
 			globals::device_list.push_back(primary_dev);
 			LOG("primary input device has been now selected\n");
@@ -83,6 +84,13 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 		{
 			found = 1;
 			dev.total_calls++;
+
+			if (timestamp - dev.timestamp < 91500)
+			{
+				LOG("Device: 0x%llx, timestamp: %lld, delta: [%lld]\n", (QWORD)hDevice, timestamp, timestamp - dev.timestamp);
+			}
+
+			dev.timestamp = timestamp;
 			break;
 		}
 	}
@@ -119,6 +127,7 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 					//
 					// select new primary device
 					//
+					device.timestamp = timestamp;
 					globals::device_list.clear();
 					globals::device_list.push_back(device);
 					new_device.total_calls = 0;
