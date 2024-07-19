@@ -96,6 +96,28 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 		}
 	}
 
+	if (found)
+	{
+		//
+		// did someone send empty mouse packet?
+		//
+		BOOL empty = 1;
+		for (int i = sizeof(RAWMOUSE); i--;)
+		{
+			if (((BYTE*)rawmouse)[i] != 0)
+			{
+				empty = 0;
+				break;
+			}
+		}
+
+
+		if (empty)
+		{
+			LOG("Device: 0x%llx, timestamp: %lld, empty mouse packet\n", (QWORD)hDevice, timestamp);
+		}
+	}
+
 	if (found == 0)
 	{
 		LOG("invalid mouse input detected %d\n", ++globals::invalid_cnt);
