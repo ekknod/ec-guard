@@ -84,7 +84,7 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 		{
 			found = 1;
 			dev.total_calls++;
-			if (timestamp - dev.timestamp < 645161) // if latency is less than 645161.29032258 ns (1550 Hz). tested with 1000hz mice.
+			if (timestamp - dev.timestamp < 500000) // if latency is less than 500000  ns (2000 Hz). tested with 1000hz mice.
 			{
 				//
 				// https://www.unitjuggler.com/convert-frequency-from-Hz-to-ns(p).html?val=1550
