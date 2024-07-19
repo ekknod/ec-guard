@@ -84,12 +84,10 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 		{
 			found = 1;
 			dev.total_calls++;
-
-			if (timestamp - dev.timestamp < 91500)
+			if (timestamp - dev.timestamp < 500000) // if latency is less than 0.5ms. this is tested with 1000hz mouse.
 			{
 				LOG("Device: 0x%llx, timestamp: %lld, delta: [%lld]\n", (QWORD)hDevice, timestamp, timestamp - dev.timestamp);
 			}
-
 			dev.timestamp = timestamp;
 			break;
 		}
