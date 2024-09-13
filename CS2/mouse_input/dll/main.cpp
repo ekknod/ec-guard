@@ -84,6 +84,8 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 		{
 			found = 1;
 			dev.total_calls++;
+			/*
+			https://github.com/ekknod/acdrv.git this feature can be found from acdrv project
 			if (timestamp - dev.timestamp < 500000) // if latency is less than 500000  ns (2000 Hz). tested with 1000hz mice.
 			{
 				//
@@ -91,6 +93,7 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 				//
 				LOG("Device: 0x%llx, timestamp: %lld, delta: [%lld]\n", (QWORD)hDevice, timestamp, timestamp - dev.timestamp);
 			}
+			*/
 			dev.timestamp = timestamp;
 			break;
 		}
@@ -120,7 +123,8 @@ __int64 __fastcall WIN_HandleRawMouseInput(QWORD timestamp, QWORD param1, HANDLE
 
 	if (found == 0)
 	{
-		LOG("invalid mouse input detected %d\n", ++globals::invalid_cnt);
+		LOG("Device: 0x%llx, timestamp: %lld, multiple inputs\n", (QWORD)hDevice, timestamp);
+
 		memset(rawmouse, 0, sizeof(RAWMOUSE));
 
 		if (new_device.handle == hDevice)
@@ -282,6 +286,14 @@ std::vector<DEVICE_INFO> get_input_devices(void)
 		info.handle = device_list[i].hDevice;
 		devices.push_back(info);
 	}
+
+
+	//
+	// touchpad / mouse_event
+	//
+	DEVICE_INFO touchpad{};
+	touchpad.handle = 0;
+	devices.push_back(touchpad);
 
 
 	//
